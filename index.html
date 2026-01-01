@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>每日快樂水 2026</title>
+    
+    <!-- 載入 React 與 Tailwind CSS -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        /* 解決 Safari 背景模糊與點擊延遲 */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        input, select, textarea {
+            font-size: 16px !important; /* 防止 iOS 自動放大 */
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 這裡需要填入你的 Firebase 設定，如果原本是在特定環境執行，請確保這些變數存在 -->
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- Firebase 模組模擬與初始化 ---
+        // 注意：在單一 HTML 中，我們透過 CDN 載入 Firebase 比較穩定
+    </script>
+
+    <!-- 引入 Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // 這裡會自動讀取你原本環境中的 __firebase_config
+        // 如果你要在一般網頁跑，請手動替換成 {apiKey: "...", ...}
+        const firebaseConfig = window.__firebase_config || {
+            /* 如果手動部署，請在此貼上你的 Firebase SDK Config */
+        };
+        const appId = window.__app_id || 'happy-water-2026';
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // 將 Firebase 功能傳遞給 React
+        window.FB_DB = db;
+        window.FB_AUTH = auth;
+        window.FB_FUNC = { doc, setDoc, onSnapshot, signInAnonymously, onAuthStateChanged, appId };
+    </script>
+
+    <script type="text/babel">
+        function App() {
+            const [user, setUser] = useState(null);
+            const [drinkData, setDrinkData] = useState({});
+            const [curYear, setCurYear] = useState(2026);
+            const [curMonth, setCurMonth] = useState(0);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [activeDateKey, setActiveDateKey] = useState("");
+            const [currentTheme, setCurrentTheme] = useState({ bg: '#f5f0f2', pri: '#b4a7af', name: '藕粉紫' });
+
+            const themes = [
+                { bg: '#f5f0f2', pri: '#b4a7af', name: '藕粉紫' },
+                { bg: '#edf2f0', pri: '#99a8a1', name: '薄荷綠' },
+                { bg: '#f2f3f5', pri: '#a0aab8', name: '霧霾藍' },
+                { bg: '#f7f3ee', pri: '#c2b3a3', name: '暖沙色' },
+                { bg: '#f2f1f7', pri: '#a8a5bd', name: '薰衣草' }
+            ];
+
+            const [editData, setEditData] = useState({
+                cup1: { shop: '', item: '', sugar: '', ice: '', price: '' },
+                cup2: { shop: '', item: '', sugar: '', ice: '', price: '' }
+            });
+
+            useEffect(() => {
+                const checkAuth = setInterval(() => {
+                    if (window.FB_FUNC) {
+                        clearInterval(checkAuth);
+                        const { auth, signInAnonymously, onAuthStateChanged } = window.FB_FUNC;
+                        window.FB_FUNC.onAuthStateChanged(window.FB_AUTH, (u) => {
+                            if (u) setUser(u);
+                            else window.FB_FUNC.signInAnonymously(window.FB_AUTH);
+                        });
+                    }
+                }, 500);
+            }, []);
+
+            useEffect(() => {
+                if (!user || !window.FB_DB) return;
+                const { doc, onSnapshot, appId } = window.FB_FUNC;
+                const userDocRef = window.FB_FUNC.doc(window.FB_DB, 'artifacts', window.FB_FUNC.appId, 'users', user.uid, 'settings', 'mainData');
+                
+                const unsubscribe = window.FB_FUNC.onSnapshot(userDocRef, (docSnap) => {
+                    if (docSnap.exists()) setDrinkData(docSnap.data().records || {});
+                });
+                return () => unsubscribe();
+            }, [user]);
+
+            const formatDateKey = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+            const stats = useMemo(() => {
+                return Object.keys(drinkData).reduce((acc, key) => {
+                    const isThisYear = key.startsWith(`${curYear}-`);
+                    const isThisMonth = key.startsWith(`${curYear}-${String(curMonth + 1).padStart(2, '0')}`);
+                    const day = drinkData[key];
+                    [day.cup1, day.cup2].forEach(cup => {
+                        if (cup?.item) {
+                            const p = parseInt(cup.price) || 0;
+                            if (isThisYear) { acc.yCups++; acc.yCost += p; }
+                            if (isThisMonth) { acc.mCups++; acc.mCost += p; }
+                        }
+                    });
+                    return acc;
+                }, { mCups: 0, mCost: 0, yCups: 0, yCost: 0 });
+            }, [drinkData, curYear, curMonth]);
+
+            const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
+            const firstDayOfMonth = new Date(curYear, curMonth, 1).getDay();
+
+            const handleSave = async () => {
+                const newDrinkData = { ...drinkData };
+                if (editData.cup1.item || editData.cup2.item) newDrinkData[activeDateKey] = editData;
+                else delete newDrinkData[activeDateKey];
+
+                const userDocRef = window.FB_FUNC.doc(window.FB_DB, 'artifacts', window.FB_FUNC.appId, 'users', user.uid, 'settings', 'mainData');
+                await window.FB_FUNC.setDoc(userDocRef, { records: newDrinkData }, { merge: true });
+                setIsModalOpen(false);
+            };
+
+            return (
+                <div className="min-h-[100dvh] p-4 transition-colors duration-500" style={{ backgroundColor: currentTheme.bg }}>
+                    <div className="max-w-md mx-auto">
+                        <header className="text-center py-6">
+                            <h1 className="text-3xl font-black tracking-widest text-[#8a7a82]">每日快樂水</h1>
+                            <p className="text-[10px] tracking-[0.3em] opacity-50 uppercase">Cloud Diary 2026</p>
+                        </header>
+
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <StatBox title="當月杯數" value={stats.mCups} color={currentTheme.pri} />
+                            <StatBox title="當月花費" value={`$${stats.mCost}`} color="#d4b2b7" />
+                        </div>
+
+                        <div className="glass-card rounded-[30px] p-5 shadow-sm">
+                            <div className="flex justify-between items-center mb-6">
+                                <button onClick={() => setCurMonth(m => m === 0 ? 11 : m - 1)}>⇠</button>
+                                <h2 className="font-bold">{curYear}年 {curMonth + 1}月</h2>
+                                <button onClick={() => setCurMonth(m => m === 11 ? 0 : m + 1)}>⇢</button>
+                            </div>
+                            <div className="grid grid-cols-7 gap-1">
+                                {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={i} />)}
+                                {Array.from({ length: daysInMonth }).map((_, i) => {
+                                    const d = i + 1;
+                                    const key = formatDateKey(curYear, curMonth, d);
+                                    const hasData = drinkData[key];
+                                    return (
+                                        <div key={d} onClick={() => {
+                                            setActiveDateKey(key);
+                                            setEditData(drinkData[key] || { cup1: { shop: '', item: '', sugar: '', ice: '', price: '' }, cup2: { shop: '', item: '', sugar: '', ice: '', price: '' } });
+                                            setIsModalOpen(true);
+                                        }} className="aspect-square flex flex-col items-center justify-center relative rounded-xl active:bg-white/50">
+                                            <span className="text-[10px] absolute top-1 left-1 opacity-30">{d}</span>
+                                            {hasData && <span className="text-lg">🧋</span>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="mt-8 flex justify-center gap-4">
+                            {themes.map(t => (
+                                <div key={t.name} onClick={() => setCurrentTheme(t)} className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: t.bg }} />
+                            ))}
+                        </div>
+                    </div>
+
+                    {isModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+                            <div className="bg-white w-full max-w-sm rounded-[30px] p-6 shadow-2xl max-h-[85vh] overflow-y-auto custom-scrollbar">
+                                <div className="flex justify-between mb-4">
+                                    <h3 className="font-bold">{activeDateKey}</h3>
+                                    <button onClick={() => setIsModalOpen(false)}>✕</button>
+                                </div>
+                                {[1, 2].map(n => (
+                                    <div key={n} className="mb-6 p-4 bg-gray-50 rounded-2xl">
+                                        <p className="text-[10px] font-bold mb-2">第 {n} 杯</p>
+                                        <input type="text" placeholder="品項" className="w-full p-2 mb-2 rounded-lg border-none shadow-sm" 
+                                            value={editData[`cup${n}`].item} 
+                                            onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], item: e.target.value}})} />
+                                        <div className="grid grid-cols-4 gap-1 mb-2">
+                                            {["無糖", "微糖", "半糖", "全糖"].map(s => (
+                                                <button key={s} onClick={() => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], sugar: s}})}
+                                                    className={`text-[10px] py-1 rounded ${editData[`cup${n}`].sugar === s ? 'bg-[#8a7a82] text-white' : 'bg-white'}`}>{s}</button>
+                                            ))}
+                                        </div>
+                                        <input type="number" placeholder="價格" className="w-full p-2 rounded-lg border-none shadow-sm" 
+                                            value={editData[`cup${n}`].price} 
+                                            onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], price: e.target.value}})} />
+                                    </div>
+                                ))}
+                                <button onClick={handleSave} className="w-full bg-[#8a7a82] text-white py-4 rounded-2xl font-bold">儲存同步</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function StatBox({ title, value, color }) {
+            return (
+                <div className="bg-white rounded-2xl p-3 shadow-sm border-l-4" style={{ borderColor: color }}>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase">{title}</p>
+                    <p className="text-xl font-black text-gray-700">{value}</p>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
