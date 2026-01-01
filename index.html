@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>飲料日記 2026</title>
+    <title>每日快樂水 2026</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -12,6 +12,8 @@
         .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.3); }
         body { -webkit-tap-highlight-color: transparent; font-family: -apple-system, sans-serif; background-color: #f5f0f2; }
         input { font-size: 16px !important; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -20,42 +22,70 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        const sugarLevels = ["全糖", "少糖", "半糖", "微糖", "無糖"];
-        const iceLevels = ["正常", "少冰", "微冰", "去冰", "熱"];
+        // 選項定義
+        const sugarLevels = ["全糖", "少糖", "半糖", "微糖", "二分", "一分", "無糖", "固定"];
+        const iceLevels = ["正常", "少冰", "微冰", "去冰", "常溫", "溫", "熱", "固定"];
+        const themes = [
+            { bg: '#f5f0f2', pri: '#b4a7af', name: '藕粉紫' },
+            { bg: '#edf2f0', pri: '#99a8a1', name: '薄荷綠' },
+            { bg: '#f2f3f5', pri: '#a0aab8', name: '霧霾藍' },
+            { bg: '#f7f3ee', pri: '#c2b3a3', name: '暖沙色' },
+            { bg: '#f2f1f7', pri: '#a8a5bd', name: '薰衣草' }
+        ];
 
         function App() {
-            // 儲存 Google 網址在本地，這樣每個人可以設定自己的
-            const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('user_gas_url') || '');
-            const [drinkData, setDrinkData] = useState(() => JSON.parse(localStorage.getItem('myDrinkLogs_v4') || '{}'));
+            // 讀取設定與資料
+            const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('user_gas_url') || 'https://script.google.com/macros/s/AKfycbzE_X_42dK0blHNhrF1dDQ-l80yUTxzjZGQylkpMAxxk5PcjlQ0GWHHv8ISPvRFbD0/exec');
+            const [drinkData, setDrinkData] = useState(() => JSON.parse(localStorage.getItem('myDrinkLogs_v5') || '{}'));
+            
             const [curYear, setCurYear] = useState(2026);
             const [curMonth, setCurMonth] = useState(0); 
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [isSettingOpen, setIsSettingOpen] = useState(false);
             const [activeDateKey, setActiveDateKey] = useState("");
+            const [currentTheme, setCurrentTheme] = useState(themes[0]);
             const [isSaving, setIsSaving] = useState(false);
-            const [editData, setEditData] = useState({ cup1: { item: '', price: '' }, cup2: { item: '', price: '' } });
 
-            useEffect(() => { localStorage.setItem('myDrinkLogs_v4', JSON.stringify(drinkData)); }, [drinkData]);
+            const [editData, setEditData] = useState({
+                cup1: { shop: '', item: '', sugar: '', ice: '', price: '' },
+                cup2: { shop: '', item: '', sugar: '', ice: '', price: '' }
+            });
+
+            useEffect(() => { localStorage.setItem('myDrinkLogs_v5', JSON.stringify(drinkData)); }, [drinkData]);
             useEffect(() => { localStorage.setItem('user_gas_url', gasUrl); }, [gasUrl]);
 
             const formatDateKey = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
+            // 統計
+            const stats = useMemo(() => {
+                return Object.keys(drinkData).reduce((acc, key) => {
+                    const isThisYear = key.startsWith(`${curYear}-`);
+                    const isThisMonth = key.startsWith(`${curYear}-${String(curMonth + 1).padStart(2, '0')}`);
+                    const day = drinkData[key];
+                    [day.cup1, day.cup2].forEach(cup => {
+                        if (cup?.item) {
+                            const p = parseInt(cup.price) || 0;
+                            if (isThisYear) { acc.yCups++; acc.yCost += p; }
+                            if (isThisMonth) { acc.mCups++; acc.mCost += p; }
+                        }
+                    });
+                    return acc;
+                }, { mCups: 0, mCost: 0, yCups: 0, yCost: 0 });
+            }, [drinkData, curYear, curMonth]);
+
             const handleSave = async () => {
                 setIsSaving(true);
+                const payload = { date: activeDateKey, cup1: editData.cup1, cup2: editData.cup2 };
                 try {
                     if (gasUrl) {
-                        await fetch(gasUrl, {
-                            method: 'POST',
-                            mode: 'no-cors',
-                            body: JSON.stringify({ date: activeDateKey, cup1: editData.cup1, cup2: editData.cup2 })
-                        });
+                        await fetch(gasUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
                     }
                     const newDrinkData = { ...drinkData };
                     if (editData.cup1.item || editData.cup2.item) newDrinkData[activeDateKey] = editData;
                     else delete newDrinkData[activeDateKey];
                     setDrinkData(newDrinkData);
                     setIsModalOpen(false);
-                } catch (e) { alert('同步失敗，但已存在手機'); }
+                } catch (e) { alert('同步至 Google 失敗，但資料已存於手機'); }
                 finally { setIsSaving(false); }
             };
 
@@ -63,82 +93,117 @@
             const firstDayOfMonth = new Date(curYear, curMonth, 1).getDay();
 
             return (
-                <div className="min-h-[100dvh] p-5">
+                <div className="min-h-[100dvh] p-5 pb-10 transition-colors duration-500" style={{ backgroundColor: currentTheme.bg, color: '#5e5459' }}>
                     <div className="max-w-md mx-auto relative">
-                        {/* 右上角設定按鈕 */}
-                        <button onClick={() => setIsSettingOpen(true)} className="absolute right-0 top-4 text-xl opacity-40">⚙️</button>
+                        <button onClick={() => setIsSettingOpen(true)} className="absolute right-0 top-4 text-xl opacity-30">⚙️</button>
 
-                        <header className="text-center mb-8 pt-4">
-                            <h1 className="text-3xl font-black text-[#8a7a82] tracking-tighter">飲料日記</h1>
-                            <p className="text-[10px] opacity-40 uppercase tracking-widest">Personal Drink Tracker</p>
+                        <header className="text-center mb-6 pt-4">
+                            <h1 className="text-3xl font-black tracking-widest text-[#8a7a82]">每日快樂水</h1>
+                            <p className="text-[10px] uppercase tracking-[0.3em] mt-1 opacity-50">Sweetness Cloud Diary 2026</p>
                         </header>
 
-                        <div className="glass-card rounded-[35px] p-6 shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
-                                <button onClick={() => setCurMonth(m => m === 0 ? 11 : m - 1)} className="p-2">⇠</button>
-                                <h2 className="font-bold text-lg">{curYear} / {curMonth + 1}</h2>
-                                <button onClick={() => setCurMonth(m => m === 11 ? 0 : m + 1)} className="p-2">⇢</button>
-                            </div>
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <StatBox title="當月杯數" value={stats.mCups} color={currentTheme.pri} />
+                            <StatBox title="當月支出" value={`$${stats.mCost}`} color="#d4b2b7" />
+                        </div>
 
-                            <div className="grid grid-cols-7 gap-2">
+                        <div className="glass-card rounded-[30px] p-5 shadow-sm">
+                            <div className="flex justify-between items-center mb-6 px-2">
+                                <button onClick={() => setCurMonth(m => m === 0 ? (setCurYear(curYear-1), 11) : m - 1)} className="w-10 h-10 flex items-center justify-center">⇠</button>
+                                <h2 className="text-lg font-bold">{curYear}年 {curMonth + 1}月</h2>
+                                <button onClick={() => setCurMonth(m => m === 11 ? (setCurYear(curYear+1), 0) : m + 1)} className="w-10 h-10 flex items-center justify-center">⇢</button>
+                            </div>
+                            <div className="grid grid-cols-7 gap-1">
                                 {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={i} />)}
                                 {Array.from({ length: daysInMonth }).map((_, i) => {
                                     const d = i + 1;
                                     const key = formatDateKey(curYear, curMonth, d);
+                                    const hasData = drinkData[key];
                                     return (
                                         <div key={d} onClick={() => {
                                             setActiveDateKey(key);
-                                            setEditData(drinkData[key] || { cup1: { item: '', price: '' }, cup2: { item: '', price: '' } });
+                                            setEditData(drinkData[key] || { cup1: { shop: '', item: '', sugar: '', ice: '', price: '' }, cup2: { shop: '', item: '', sugar: '', ice: '', price: '' } });
                                             setIsModalOpen(true);
-                                        }} className="aspect-square flex flex-col items-center justify-center relative rounded-2xl active:bg-white transition-all">
-                                            <span className="text-[10px] absolute top-1.5 left-2 opacity-20">{d}</span>
-                                            {drinkData[key] && <span className="text-xl">🧋</span>}
+                                        }} className="aspect-square flex flex-col items-center justify-center relative rounded-xl active:bg-white/50 transition-all">
+                                            <span className="text-[10px] font-bold text-slate-300 absolute top-1 left-2">{d}</span>
+                                            {hasData && <span className="text-lg mt-2">🧋</span>}
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        {/* 設定彈窗 */}
-                        {isSettingOpen && (
-                            <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
-                                <div className="bg-white w-full rounded-[30px] p-8">
-                                    <h3 className="font-bold mb-4 text-[#8a7a82]">同步設定</h3>
-                                    <p className="text-xs text-gray-400 mb-4">請貼上您的 Google Apps Script 網址：</p>
-                                    <textarea 
-                                        className="w-full p-4 bg-gray-50 rounded-xl text-xs border-none h-32 mb-4"
-                                        placeholder="https://script.google.com/macros/s/..."
-                                        value={gasUrl}
-                                        onChange={(e) => setGasUrl(e.target.value)}
-                                    />
-                                    <button onClick={() => setIsSettingOpen(false)} className="w-full bg-[#8a7a82] text-white py-4 rounded-2xl font-bold">儲存並返回</button>
-                                </div>
-                            </div>
-                        )}
+                        <div className="mt-8 flex justify-center gap-4">
+                            {themes.map(t => (
+                                <div key={t.name} onClick={() => setCurrentTheme(t)} className="w-7 h-7 rounded-full border-2 border-white shadow-sm cursor-pointer" style={{ backgroundColor: t.bg }} />
+                            ))}
+                        </div>
+                    </div>
 
-                        {/* 編輯彈窗 */}
-                        {isModalOpen && (
-                            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-                                <div className="bg-white w-full max-w-sm rounded-[35px] p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h3 className="font-bold text-[#8a7a82]">{activeDateKey}</h3>
-                                        <button onClick={() => setIsModalOpen(false)} className="text-gray-300">✕</button>
-                                    </div>
+                    {/* 編輯視窗 */}
+                    {isModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+                            <div className="bg-white w-full max-w-sm rounded-t-[35px] sm:rounded-[35px] p-6 shadow-2xl flex flex-col max-h-[90dvh]">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-bold text-[#8a7a82]">{activeDateKey}</h3>
+                                    <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-300 text-2xl">✕</button>
+                                </div>
+
+                                <div className="space-y-6 overflow-y-auto pr-1 pb-4 custom-scrollbar">
                                     {[1, 2].map(n => (
-                                        <div key={n} className="mb-4 p-4 bg-gray-50 rounded-2xl">
-                                            <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">Cup {n}</p>
-                                            <input placeholder="品項名稱" value={editData[`cup${n}`].item} onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], item: e.target.value}})} className="w-full p-3 mb-2 rounded-xl border-none shadow-sm" />
-                                            <input placeholder="價格" type="number" value={editData[`cup${n}`].price} onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], price: e.target.value}})} className="w-full p-3 rounded-xl border-none shadow-sm" />
+                                        <div key={n} className="p-4 bg-[#faf9fa] rounded-2xl border border-[#f0ebf0]">
+                                            <span className="text-[9px] font-bold text-[#b4a7af] mb-3 block uppercase">杯子 0{n}</span>
+                                            <div className="space-y-4">
+                                                <input placeholder="店名" value={editData[`cup${n}`].shop} onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], shop: e.target.value}})} className="w-full p-3 rounded-xl border-none text-base shadow-sm bg-white" />
+                                                <input placeholder="品項" value={editData[`cup${n}`].item} onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], item: e.target.value}})} className="w-full p-3 rounded-xl border-none text-base shadow-sm bg-white" />
+                                                
+                                                <OptionGroup label="甜度" options={sugarLevels} selected={editData[`cup${n}`].sugar} onSelect={val => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], sugar: val}})} activeColor={currentTheme.pri} />
+                                                <OptionGroup label="冰塊" options={iceLevels} selected={editData[`cup${n}`].ice} onSelect={val => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], ice: val}})} activeColor={currentTheme.pri} />
+
+                                                <input type="number" placeholder="價格 $" value={editData[`cup${n}`].price} onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], price: e.target.value}})} className="w-full p-3 rounded-xl border-none text-base shadow-sm bg-white" />
+                                            </div>
                                         </div>
                                     ))}
-                                    <button onClick={handleSave} disabled={isSaving} className="w-full mt-4 bg-[#8a7a82] text-white py-4 rounded-[22px] font-bold shadow-lg">
-                                        {isSaving ? '同步中...' : gasUrl ? '儲存並同步雲端' : '儲存於本地手機'}
-                                    </button>
-                                    {!gasUrl && <p className="text-[10px] text-center mt-2 text-red-400">尚未設定 Google 網址，資料僅存於手機</p>}
                                 </div>
+                                <button onClick={handleSave} disabled={isSaving} className="w-full mt-4 bg-[#8a7a82] text-white py-4 rounded-[22px] font-bold shadow-lg active:scale-95 transition-all">
+                                    {isSaving ? '同步中...' : '儲存紀錄並同步'}
+                                </button>
                             </div>
-                        )}
+                        </div>
+                    )}
+
+                    {/* 設定視窗 */}
+                    {isSettingOpen && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+                            <div className="bg-white w-full max-w-xs rounded-[30px] p-8 shadow-2xl">
+                                <h3 className="font-bold mb-4 text-[#8a7a82]">Google 同步設定</h3>
+                                <textarea className="w-full p-4 bg-gray-50 rounded-xl text-[10px] border-none h-32 mb-4 leading-relaxed" placeholder="貼上您的 Google 網址..." value={gasUrl} onChange={(e) => setGasUrl(e.target.value)} />
+                                <button onClick={() => setIsSettingOpen(false)} className="w-full bg-[#8a7a82] text-white py-4 rounded-2xl font-bold">儲存設定</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function OptionGroup({ label, options, selected, onSelect, activeColor }) {
+            return (
+                <div>
+                    <p className="text-[10px] text-slate-400 mb-2">{label}</p>
+                    <div className="grid grid-cols-4 gap-1.5">
+                        {options.map(opt => (
+                            <button key={opt} onClick={() => onSelect(opt)} className={`py-2 text-[10px] rounded-lg border transition-all ${selected === opt ? 'text-white shadow-md' : 'bg-white text-slate-400 border-slate-50'}`} style={{ backgroundColor: selected === opt ? '#9d8189' : '' }}>{opt}</button>
+                        ))}
                     </div>
+                </div>
+            );
+        }
+
+        function StatBox({ title, value, color }) {
+            return (
+                <div className="bg-white rounded-[18px] p-3 shadow-sm border-l-4" style={{ borderColor: color }}>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">{title}</p>
+                    <p className="text-xl font-black text-slate-700">{value}</p>
                 </div>
             );
         }
