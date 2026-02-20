@@ -41,8 +41,8 @@
         function App() {
             const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('user_gas_url') || '');
             const [drinkData, setDrinkData] = useState(() => JSON.parse(localStorage.getItem('myDrinkLogs_v11') || '{}'));
-            const [curYear, setCurYear] = useState(2026);
-            const [curMonth, setCurMonth] = useState(0); 
+            const [curYear, setCurYear] = useState(new Date().getFullYear());
+            const [curMonth, setCurMonth] = useState(new Date().getMonth()); 
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [isSettingOpen, setIsSettingOpen] = useState(false);
             const [activeDateKey, setActiveDateKey] = useState("");
