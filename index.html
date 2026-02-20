@@ -20,10 +20,12 @@
         input[type="checkbox"] { width: 18px; height: 18px; accent-color: #8a7a82; cursor: pointer; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        /* 今日高亮樣式 */
-        .today-highlight {
-            background: rgba(255, 255, 255, 0.5);
-            box-shadow: inset 0 0 0 2px rgba(138, 122, 130, 0.3);
+        
+        /* 重新設計：更明顯的今日高亮樣式 */
+        .today-box {
+            border: 2px solid #8a7a82 !important; /* 深色邊框 */
+            background: white !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
     </style>
 </head>
@@ -47,13 +49,13 @@
             const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('user_gas_url') || '');
             const [drinkData, setDrinkData] = useState(() => JSON.parse(localStorage.getItem('myDrinkLogs_v11') || '{}'));
             
-            // --- 修正點 1: 改為動態獲取當前日期 ---
+            // 1. 自動獲取目前年月
             const now = new Date();
             const [curYear, setCurYear] = useState(now.getFullYear());
             const [curMonth, setCurMonth] = useState(now.getMonth()); 
             
-            // 獲取今天的日期字串 (格式 YYYY-MM-DD)
-            const todayKey = now.toLocaleDateString('en-CA'); 
+            // 2. 獲取今天的日期 Key (確保與資料庫格式一致：YYYY-MM-DD)
+            const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [isSettingOpen, setIsSettingOpen] = useState(false);
@@ -123,7 +125,6 @@
 
                         <header className="text-center mb-6 pt-4">
                             <h1 className="text-3xl font-black tracking-widest text-[#8a7a82]">每日快樂水</h1>
-                            {/* 修正點 2: 標題年份改為動態 */}
                             <p className="text-[10px] uppercase tracking-[0.3em] mt-1 opacity-50 font-bold">SWEETNESS DIARY {curYear}</p>
                         </header>
 
@@ -151,16 +152,16 @@
                                     const d = i + 1;
                                     const key = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                                     
-                                    // 修正點 3: 判斷是否為今天
-                                    const isToday = key === todayKey;
+                                    // 3. 判斷是否為今天
+                                    const isToday = (key === todayKey);
 
                                     return (
                                         <div key={d} onClick={() => {
                                             setActiveDateKey(key);
                                             setEditData(drinkData[key] || { cup1: { shop: '', item: '', sugar: '', ice: '', price: '', isFree: false }, cup2: { shop: '', item: '', sugar: '', ice: '', price: '', isFree: false } });
                                             setIsModalOpen(true);
-                                        }} className={`aspect-square flex flex-col items-center justify-center relative rounded-2xl active:bg-white/50 transition-all ${isToday ? 'today-highlight' : ''}`}>
-                                            <span className={`text-[11px] font-bold absolute top-1.5 left-2 ${isToday ? 'text-[#8a7a82]' : 'text-slate-300'}`}>{d}</span>
+                                        }} className={`aspect-square flex flex-col items-center justify-center relative rounded-2xl active:bg-white/50 transition-all ${isToday ? 'today-box' : ''}`}>
+                                            <span className={`text-[11px] font-black absolute top-1.5 left-2 ${isToday ? 'text-[#8a7a82]' : 'text-slate-300'}`}>{d}</span>
                                             {drinkData[key] && <span className="text-xl mt-2">🧋</span>}
                                         </div>
                                     );
