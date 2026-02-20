@@ -20,12 +20,10 @@
         input[type="checkbox"] { width: 18px; height: 18px; accent-color: #8a7a82; cursor: pointer; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        
-        /* 【全新】今天的格子高亮樣式：整個格子變色 */
-        .today-cell {
-            background-color: rgba(138, 122, 130, 0.15) !important; /* 淡淡的主題色背景 */
-            border: 1.5px solid #8a7a82 !important; /* 深色邊框 */
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        /* 今日高亮樣式 */
+        .today-highlight {
+            background: rgba(255, 255, 255, 0.5);
+            box-shadow: inset 0 0 0 2px rgba(138, 122, 130, 0.3);
         }
     </style>
 </head>
@@ -49,15 +47,13 @@
             const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('user_gas_url') || '');
             const [drinkData, setDrinkData] = useState(() => JSON.parse(localStorage.getItem('myDrinkLogs_v11') || '{}'));
             
-            // 抓取系統目前時間
+            // --- 修正點 1: 改為動態獲取當前日期 ---
             const now = new Date();
-            const [curYear, setCurYear] = useState(now.getFullYear()); 
+            const [curYear, setCurYear] = useState(now.getFullYear());
             const [curMonth, setCurMonth] = useState(now.getMonth()); 
             
-            // 鎖定今天的年月日
-            const sysYear = now.getFullYear();
-            const sysMonth = now.getMonth();
-            const sysDay = now.getDate();
+            // 獲取今天的日期字串 (格式 YYYY-MM-DD)
+            const todayKey = now.toLocaleDateString('en-CA'); 
 
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [isSettingOpen, setIsSettingOpen] = useState(false);
@@ -127,6 +123,7 @@
 
                         <header className="text-center mb-6 pt-4">
                             <h1 className="text-3xl font-black tracking-widest text-[#8a7a82]">每日快樂水</h1>
+                            {/* 修正點 2: 標題年份改為動態 */}
                             <p className="text-[10px] uppercase tracking-[0.3em] mt-1 opacity-50 font-bold">SWEETNESS DIARY {curYear}</p>
                         </header>
 
@@ -154,16 +151,16 @@
                                     const d = i + 1;
                                     const key = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                                     
-                                    // 精確判斷今天：必須年月日都跟系統一致
-                                    const isToday = (d === sysDay && curMonth === sysMonth && curYear === sysYear);
+                                    // 修正點 3: 判斷是否為今天
+                                    const isToday = key === todayKey;
 
                                     return (
                                         <div key={d} onClick={() => {
                                             setActiveDateKey(key);
                                             setEditData(drinkData[key] || { cup1: { shop: '', item: '', sugar: '', ice: '', price: '', isFree: false }, cup2: { shop: '', item: '', sugar: '', ice: '', price: '', isFree: false } });
                                             setIsModalOpen(true);
-                                        }} className={`aspect-square flex flex-col items-center justify-center relative rounded-2xl active:bg-white/50 transition-all ${isToday ? 'today-cell' : ''}`}>
-                                            <span className={`text-[11px] font-black absolute top-1.5 left-2 ${isToday ? 'text-[#8a7a82]' : 'text-slate-300'}`}>{d}</span>
+                                        }} className={`aspect-square flex flex-col items-center justify-center relative rounded-2xl active:bg-white/50 transition-all ${isToday ? 'today-highlight' : ''}`}>
+                                            <span className={`text-[11px] font-bold absolute top-1.5 left-2 ${isToday ? 'text-[#8a7a82]' : 'text-slate-300'}`}>{d}</span>
                                             {drinkData[key] && <span className="text-xl mt-2">🧋</span>}
                                         </div>
                                     );
@@ -178,7 +175,6 @@
                         </div>
                     </div>
 
-                    {/* ... Modal 與 Settings 部分保持不變 ... */}
                     {isModalOpen && (
                         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
                             <div className="bg-white w-full max-w-sm rounded-t-[40px] sm:rounded-[40px] p-6 shadow-2xl flex flex-col max-h-[90dvh]">
@@ -186,14 +182,17 @@
                                     <h3 className="text-xl font-bold text-[#8a7a82]">{activeDateKey.replace(/-/g, ' / ')}</h3>
                                     <button onClick={() => setIsModalOpen(false)} className="text-slate-300 text-3xl p-2">&times;</button>
                                 </div>
+
                                 <div className="space-y-6 overflow-y-auto pr-1 pb-4 custom-scrollbar px-1">
                                     {[1, 2].map(n => (
                                         <div key={n} className="p-5 bg-[#faf9fa] rounded-[30px] border border-[#f0ebf0] space-y-4">
                                             <span className="text-[10px] font-bold text-[#b4a7af] uppercase tracking-widest">Cup 0{n}</span>
                                             <input placeholder="店名" value={editData[`cup${n}`].shop} onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], shop: e.target.value}})} className="w-full p-3.5 rounded-2xl border-none shadow-sm bg-white" />
                                             <input placeholder="品項" value={editData[`cup${n}`].item} onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], item: e.target.value}})} className="w-full p-3.5 rounded-2xl border-none shadow-sm bg-white" />
+                                            
                                             <OptionGroup label="甜度" options={sugarLevels} selected={editData[`cup${n}`].sugar} onSelect={val => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], sugar: val}})} activeColor={currentTheme.pri} />
                                             <OptionGroup label="冰塊" options={iceLevels} selected={editData[`cup${n}`].ice} onSelect={val => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], ice: val}})} activeColor={currentTheme.pri} />
+                                            
                                             <div className="flex items-center space-x-3">
                                                 <input type="number" placeholder="價格 $" value={editData[`cup${n}`].price} onChange={e => setEditData({...editData, [`cup${n}`]: {...editData[`cup${n}`], price: e.target.value}})} className="flex-1 p-3.5 rounded-2xl border-none shadow-sm bg-white" />
                                                 <label className="flex items-center space-x-2 text-sm text-[#8a7a82] font-bold cursor-pointer">
@@ -249,4 +248,8 @@
             );
         }
 
-        const root = ReactDOM.createRoot(document.getEle
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
